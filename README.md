@@ -45,8 +45,13 @@ class MySpider(BaseSpider):
             yield request
 ````
 
-####### 100 connections to download files.
+###### 100 connections to download files.
 ````
   scrapy runspider spider.py 2>&1 | grep '^http' | grep '\.gz$' > urls.txt;
   aria2c -i urls.txt -j 100;
+````
+
+###### Run command for .jar
+````
+java -cp cb-noaa.jar org.couchbase.noaaLoader.support.ishJava ./noaa 84.40.63.62 > cb_upload_log.txt &
 ````
