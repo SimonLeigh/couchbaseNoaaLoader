@@ -16,7 +16,7 @@ wget --spider --force-html -r -l4 --reject "index.htm*" -I "/pub/data/noaa/19*/,
 
 ##### Success!
 /////Python 
-
+````
 from scrapy.selector import HtmlXPathSelector
 from scrapy.spider import BaseSpider
 from scrapy.http import Request
@@ -39,7 +39,7 @@ class MySpider(BaseSpider):
             request = Request(url=url,callback=self.parse)
             print url
             yield request
-
+````
 
 ####### 100 connections to download files.
 
