@@ -49,7 +49,7 @@ public class CouchbaseClientFactory {
 
     private static Map<String, Bucket> cbClients = null;
 
-    public static Bucket getInstance(String bucket, String password){
+    public static Bucket getInstance(String bucket, String password, String server){
 
         /* We only want to create and instance if there
         *    isn't one already
@@ -64,7 +64,7 @@ public class CouchbaseClientFactory {
         if (!cbClients.containsKey(key)) {
             try {
                 List<String> nodes = new ArrayList<String>();
-                String host1 = new String("localhost");
+                String host1 = server;
                 nodes.add(host1);
                 Cluster cluster = CouchbaseCluster.create(host1);
                 Bucket theBucket = cluster.openBucket(bucket,password);

@@ -19,7 +19,7 @@ public class NoaaCBInserter {
         Method creates and inserts documents for each line in opFile based on headers.
      */
     public static void insert(BufferedReader opFile) {
-        Bucket myClient = CouchbaseClientFactory.getInstance("noaa", "");
+        Bucket myClient = CouchbaseClientFactory.getInstance("noaa", "", "localhost");
 
         String line = null;
         String[] titles = null;

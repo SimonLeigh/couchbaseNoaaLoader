@@ -1,9 +1,7 @@
-package org.couchbase.noaaLoader.support;
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
 *
 *  Produce simplified form from ISH file.
-*
+* 
 *       Parameters:
 *           1st = Input File Name
 *           2nd = Output File Name
@@ -14,35 +12,28 @@ package org.couchbase.noaaLoader.support;
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 * Date:       Developer  PR/CR #   Description of changes
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-*
+* 
 * 03/10/2011  ras        ????      Created.
-*
+* 
 * 06/06/2012  ras        ????      Added AW1-AW4 (Automated Present Weather)
 *                                  Corrected problem when OC1 was missing
-*
+* 
 * 06/21/2012  ras        ????      Modified Wind Dir logic to set value to 990 when
 *                                  Type code is 'V'
 *                                  Added MW4 (Manual Present Weather)
-*
+* 
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-import com.couchbase.client.java.Bucket;
-import com.couchbase.client.java.document.JsonDocument;
-import com.couchbase.client.java.document.json.JsonObject;
-import org.couchbase.noaaLoader.CouchbaseClientFactory;
+package ishProcessor;
 
 import java.io.*;
 import java.lang.Math.*;
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Date;
 import java.util.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.text.NumberFormat;
 import java.text.DecimalFormat;
-import java.util.zip.GZIPInputStream;
 
 /**
  *   Mainline logic.
@@ -302,35 +293,51 @@ public class ishJava
     static String sAW4_Zz       = "";
     static String sAW4_Fill2    = "";
 
-    static String sHeader       = "USAF  WBAN TIME DIR SPD GUS CLG SKC L M H  VSB "+
-            "MW1 MW2 MW3 MW4 AW1 AW2 AW3 AW4 W TEMP DEWP    SLP   ALT    STP MAX MIN PCP01 "+
+    static String sHeader       = "  USAF  WBAN YR--MODAHRMN DIR SPD GUS CLG SKC L M H  VSB "+
+            "MW MW MW MW AW AW AW AW W TEMP DEWP    SLP   ALT    STP MAX MIN PCP01 "+
             "PCP06 PCP24 PCPXX SD\n";
 
-    // CouchbaseBucket
-    static Bucket Bucket = null;
-    // Vector representing list of sample documents to be inserted;
-    static Vector<JsonObject> sampleDocs = new Vector<JsonObject>();
-    // Boolean indicating whether new Day or adding to existing.
-    static boolean firstEntry = true;
-    static String previousDate = "";
-
-    public static void main(String args[]) {
-        Bucket = CouchbaseClientFactory.getInstance("noaa","", args[1]);
-
-        try {
-            Files.walk(Paths.get(args[0])).forEach(path -> processFile(path.toFile()));
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (Exception e){
-            e.printStackTrace();
-        }
-    }
-
-    public static void processFile(File inputGZ)
+    public static void main(String[] args)
     {
 //        logIt(fDebug, iPROD, false, "---------------------------- Begin "+sProgramName);          // Append output to log.
 //        logIt(fDebug, iPROD, false, "Number of args found=["+args.length+"]");                    // Append output to log.
 
+// Process args
+        if (args.length <= 1)
+        {
+            bStdErr=true;
+            logIt(fDebug, iPROD, false, "Error. Input and Output filenames required.");            // Append output to log.
+            System.exit(77);
+        }
+
+        if (args.length >= 2)
+        {
+            sInFileName     = args[0];
+            sOutFileName    = args[1];
+        }
+
+        if (args.length >= 3)
+        {
+            if (args[2].equals("0") ||
+                    args[2].equals("1"))
+            {
+                iLogLevel = Integer.parseInt(args[2]);                      // Safe to convert to int.
+            }
+            else
+            {
+                logIt(fDebug, iPROD, false, "Invalid log message level parameter=["+args[2]+"].  Must be 0 or 1.  Defaulting to ["+iLogLevel+"]");
+            }
+        }
+
+        if (args.length >= 4)
+        {
+            p_sFilter1 = args[3];
+        }
+
+        if (args.length >= 5)
+        {
+            p_sFilter2 = args[4];
+        }
 
 //        sOutFileName  = sInFileName+".java.out";
 
@@ -343,158 +350,135 @@ public class ishJava
 
         try
         {
-            if (!inputGZ.isDirectory() && inputGZ.getName().endsWith("gz")){
-                System.out.println("Processing: " + inputGZ.getAbsolutePath());
-                InputStream inStream = new FileInputStream(inputGZ);
-                GZIPInputStream is=null;
+            BufferedReader fInReader        = new BufferedReader(new FileReader(sInFileName));
 
-                try {
-                    is = new GZIPInputStream(inStream);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+            FileWriter fFixed               = new FileWriter(sOutFileName);
+            BufferedWriter fFixedWriter     = new BufferedWriter(fFixed);
 
-                Reader decoder = new InputStreamReader(is);
-                BufferedReader opReader = new BufferedReader (decoder);
+            fFixedWriter.write(sHeader);           // Put header into output file.
 
-                try
+            try
+            {
+                String line = null;
+                while (( line = fInReader.readLine()) != null)
                 {
-                    String line = null;
-                    // Clear the samples Vector
-                    sampleDocs.clear();
-                    firstEntry = true;
-                    while (( line = opReader.readLine()) != null)
-                    {
-                        iCounter++;
+                    iCounter++;
 //                    iOffset         = 25;
-                        iLength         = line.length();
+                    iLength         = line.length();
 //                    logIt(fDebug, iDEBUG, false, "Record # "+iCounter+" had iLength=["+iLength+"]");
 //                    System.out.println(line);
 
 // See where the REM section begins
-                        iREM_IndexOf    = line.indexOf("REM");
-                        if (iREM_IndexOf == -1)
-                        {
-                            iREM_IndexOf = 9999;      // If no REM section then set to high value
-                        }
+                    iREM_IndexOf    = line.indexOf("REM");
+                    if (iREM_IndexOf == -1)
+                    {
+                        iREM_IndexOf = 9999;      // If no REM section then set to high value
+                    }
 
-                        getCDS(line);   //  Fields making up the Control Data Section.
+                    getCDS(line);   //  Fields making up the Control Data Section.
 
-                        sConcat      = sCDS_ID+"-"+sCDS_Wban+"-"+sCDS_Year+"-"+sCDS_Month+"-"+sCDS_Day+" "+sCDS_Hour+":"+sCDS_Minute;
-                        sConcatDate  = sCDS_Year+"-"+sCDS_Month+"-"+sCDS_Day;
-
-                        //If first entry make sure we're going to append to array;
-                        if (firstEntry){
-                            previousDate=sConcatDate;
-                            firstEntry=false;
-                        }
-
-                        //Commit document if we've changed dates and start creating a new one
-                        if (!previousDate.equals(sConcatDate)){
-                            // Create the JsonObject
-                            JsonObject dayContent = JsonObject.empty().put("samples", sampleDocs);
-                            //Key format is STN::WBAN::YMD,
-                            // commit with previousDate because we do it at start of next cycle.
-                            JsonDocument dayDoc = JsonDocument.create(sCDS_ID+"-"+sCDS_Wban+"::"+previousDate, dayContent);
-                            Bucket.upsert(dayDoc);
-                            sampleDocs.clear();
-                        }
-
-                        sConcatMonth = sCDS_Year+"-"+sCDS_Month;
+                    sConcat      = sCDS_ID+"-"+sCDS_Wban+"-"+sCDS_Year+"-"+sCDS_Month+"-"+sCDS_Day+" "+sCDS_Hour+":"+sCDS_Minute;
+                    sConcatDate  = sCDS_Year+"-"+sCDS_Month+"-"+sCDS_Day;
+                    sConcatMonth = sCDS_Year+"-"+sCDS_Month;
 
 
-                        getMDS(line);   //  Fields making up the Mandatory Data Section.
-                        getOC1(line);   //  Fields making up the OC1 element.
-                        getGF1(line);   //  Fields making up the GF1 element.
-                        getMW1(line);   //  Fields making up the MW1 element.
-                        getMW2(line);   //  Fields making up the MW2 element.
-                        getMW3(line);   //  Fields making up the MW3 element.
-                        getMW4(line);   //  Fields making up the MW3 element.       // 06/21/2012  ras
-                        getAY1(line);   //  Fields making up the AY1 element.
-                        getMA1(line);   //  Fields making up the MA1 element.
-                        sMaxTemp        = "***";
-                        sMinTemp        = "***";
-                        getKA1(line);   //  Fields making up the KA1 element.
-                        getKA2(line);   //  Fields making up the KA2 element.
-                        sPcp01          = "*****";
-                        sPcp01t         = " ";
-                        sPcp06          = "*****";
-                        sPcp06t         = " ";
-                        sPcp24          = "*****";
-                        sPcp24t         = " ";
-                        sPcp12          = "*****";
-                        sPcp12t         = " ";
-                        getAA1(line);   //  Fields making up the AA1 element.
-                        getAA2(line);   //  Fields making up the AA2 element.
-                        getAA3(line);   //  Fields making up the AA3 element.
-                        getAA4(line);   //  Fields making up the AA4 element.
-                        getAJ1(line);   //  Fields making up the AJ1 element.
-                        getAW1(line);   //  Fields making up the AW1 element.       // 06/06/2012  ras
-                        getAW2(line);   //  Fields making up the AW2 element.       // 06/06/2012  ras
-                        getAW3(line);   //  Fields making up the AW3 element.       // 06/06/2012  ras
-                        getAW4(line);   //  Fields making up the AW4 element.       // 06/06/2012  ras
+// =-=-=-=-=-=-=-=-=-=-=-=-=-= Filter out all but a certain station/date =-=-=-=-=-=-=-=-=-=-=-=-=-=
+//                    if ( (! sConcatDate.equals("2011-01-01")) && (! sConcatDate.equals("2010-01-02")) )
+//                    if ( (! sConcatDate.equals("2012-04-12")) )           // Whole Day
+//                    if ( (! sConcatMonth.equals("2009-04")) )           // Whole month
+//                    {
+//                        continue;
+//                    }
+//
+//                    logIt(fDebug, iDEBUG, false, "line=["+line+"] ");
+//
+//                    logIt(fDebug, iDEBUG, false, "Record # "+iCounter+" had sConcat=["+sConcat+"]");
+//
+//                    if (iCounter >= 100)
+//                    {
+//                        logIt(fDebug, iDEBUG, false, "Max count reached.  Stopping...");
+//                        fFixedWriter.flush();
+//                        fFixedWriter.close();
+//                        System.exit(22);
+//                    }
+// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= Done =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+
+                    getMDS(line);   //  Fields making up the Mandatory Data Section.
+                    getOC1(line);   //  Fields making up the OC1 element.
+                    getGF1(line);   //  Fields making up the GF1 element.
+                    getMW1(line);   //  Fields making up the MW1 element.
+                    getMW2(line);   //  Fields making up the MW2 element.
+                    getMW3(line);   //  Fields making up the MW3 element.
+                    getMW4(line);   //  Fields making up the MW3 element.       // 06/21/2012  ras
+                    getAY1(line);   //  Fields making up the AY1 element.
+                    getMA1(line);   //  Fields making up the MA1 element.
+                    sMaxTemp        = "***";
+                    sMinTemp        = "***";
+                    getKA1(line);   //  Fields making up the KA1 element.
+                    getKA2(line);   //  Fields making up the KA2 element.
+                    sPcp01          = "*****";
+                    sPcp01t         = " ";
+                    sPcp06          = "*****";
+                    sPcp06t         = " ";
+                    sPcp24          = "*****";
+                    sPcp24t         = " ";
+                    sPcp12          = "*****";
+                    sPcp12t         = " ";
+                    getAA1(line);   //  Fields making up the AA1 element.
+                    getAA2(line);   //  Fields making up the AA2 element.
+                    getAA3(line);   //  Fields making up the AA3 element.
+                    getAA4(line);   //  Fields making up the AA4 element.
+                    getAJ1(line);   //  Fields making up the AJ1 element.
+                    getAW1(line);   //  Fields making up the AW1 element.       // 06/06/2012  ras
+                    getAW2(line);   //  Fields making up the AW2 element.       // 06/06/2012  ras
+                    getAW3(line);   //  Fields making up the AW3 element.       // 06/06/2012  ras
+                    getAW4(line);   //  Fields making up the AW4 element.       // 06/06/2012  ras
 
 // Begin formatting output record..............................................................
 
 // Post-processing format changes
-                    /*
                     if ( sCDS_Wban.equals("99999") )    // Show WBAN=99999 as missing "*****" in output file
                     {
                         sCDS_Wban   = "*****";
                     }
-                    */
 // Build Control Data Section
-                        sControlSection = sCDS_ID+" "+sCDS_Wban+" "+ /* sCDS_Year+sCDS_Month+sCDS_Day+ */sCDS_Hour+sCDS_Minute;
-
+                    sControlSection = sCDS_ID+" "+sCDS_Wban+" "+sCDS_Year+sCDS_Month+sCDS_Day+sCDS_Hour+sCDS_Minute;
 
 // Sort Present Weather elements
-                        sWW1234 = new String[] {sMW1_Ww,sMW2_Ww,sMW3_Ww,sMW4_Ww};
-                        Arrays.sort(sWW1234);
+                    sWW1234 = new String[] {sMW1_Ww,sMW2_Ww,sMW3_Ww,sMW4_Ww};
+                    Arrays.sort(sWW1234);
 
 // Sort Present Weather (Automated) elements
-                        sAW1234 = new String[] {sAW1_Zz,sAW2_Zz,sAW3_Zz,sAW4_Zz};
-                        Arrays.sort(sAW1234);
+                    sAW1234 = new String[] {sAW1_Zz,sAW2_Zz,sAW3_Zz,sAW4_Zz};
+                    Arrays.sort(sAW1234);
 
 // Build Mandatory Data Section + the rest of the record
-                        sMandatorySection = sMDS_Dir+" "+sMDS_Spd+" "+sOC1_Gus+" "+sMDS_Clg
-                                +" "+sGF1_Skc+" "+sGF1_Low+" "+sGF1_Med+" "+sGF1_Hi+" "+sMDS_Vsb
-                                +" "+sWW1234[3]+" "+sWW1234[2]+" "+sWW1234[1]+" "+sWW1234[0]
-                                +" "+sAW1234[3]+" "+sAW1234[2]+" "+sAW1234[1]+" "+sAW1234[0]+" "+sAY1_Pw
-                                +" "+sMDS_Temp+" "+sMDS_Dewp+" "+sMDS_Slp+" "+sMA1_Alt+" "+sMA1_Stp
-                                +" "+sMaxTemp+" "+sMinTemp+" "+sPcp01+sPcp01t+sPcp06+sPcp06t+sPcp24+sPcp24t+sPcp12+sPcp12t
-                                +sAJ1_Sd;
+                    sMandatorySection = sMDS_Dir+" "+sMDS_Spd+" "+sOC1_Gus+" "+sMDS_Clg
+                            +" "+sGF1_Skc+" "+sGF1_Low+" "+sGF1_Med+" "+sGF1_Hi+" "+sMDS_Vsb
+                            +" "+sWW1234[3]+" "+sWW1234[2]+" "+sWW1234[1]+" "+sWW1234[0]
+                            +" "+sAW1234[3]+" "+sAW1234[2]+" "+sAW1234[1]+" "+sAW1234[0]+" "+sAY1_Pw
+                            +" "+sMDS_Temp+" "+sMDS_Dewp+" "+sMDS_Slp+" "+sMA1_Alt+" "+sMA1_Stp
+                            +" "+sMaxTemp+" "+sMinTemp+" "+sPcp01+sPcp01t+sPcp06+sPcp06t+sPcp24+sPcp24t+sPcp12+sPcp12t
+                            +sAJ1_Sd;
 
-                        sOutputRecord = sControlSection+" "+sMandatorySection;  // Put it all together
+                    sOutputRecord = sControlSection+" "+sMandatorySection;  // Put it all together
+                    fFixedWriter.write(sOutputRecord+"\n");                 // Write out the record
 
-                        // Set previous date
-                        previousDate=sConcatDate;
-
-                        // Call function to add the samples to sampleDocs
-                        addSample(sOutputRecord,sHeader,sampleDocs);
-
-
-                    }  // while read
-
-                    // After final line we need to add the samples.
-                    // Create the JsonObject
-                    JsonObject dayContent = JsonObject.empty().put("samples", sampleDocs);
-                    //Key format is STN::WBAN::YMD,
-                    // commit with previousDate because we do it at start of next cycle.
-                    JsonDocument dayDoc = JsonDocument.create(sCDS_ID+"-"+sCDS_Wban+"::"+previousDate, dayContent);
-                    Bucket.upsert(dayDoc);
-                    sampleDocs.clear();
-
-                }
-                catch (IOException ex) {
-                    System.err.println(sProgramName + ": IOException 2. Error=[" + ex.getMessage() + "]");
-                    System.err.println(sProgramName+": Stack trace follows:");
-                    ex.printStackTrace();
-                    System.exit(2);
-                }
-
-                opReader.close();
+                }  // while read
 
             }
+            catch (IOException ex) {
+                System.err.println(sProgramName+": IOException 2. Error=[" + ex.getMessage()+"]");
+                System.err.println(sProgramName+": Stack trace follows:");
+                ex.printStackTrace();
+                System.exit(2);
+            }
+
+            fInReader.close();
+            fFixedWriter.flush();
+            fFixedWriter.close();
+
         } catch (Exception e) {                                                               //Catch exception if any
             sMessage=sProgramName+": Unspecified Exception 1. Error=[" + e.getMessage()+"]";
             bStdErr=true;
@@ -504,33 +488,10 @@ public class ishJava
             System.exit(1);
         }
 
-        logIt(fDebug, iDEBUG, false, "Processed " + iCounter + " records");
+        logIt(fDebug, iDEBUG, false, "Processed "+iCounter+" records");
         logIt(fDebug, iDEBUG, false, "Done.");
 
-
-    }// End of main()
-
-
-    public static void addSample(String record, String header, Vector<JsonObject> sampleVector){
-        //TODO: Implement this method to add the sample to the vector
-        String[] items = record.split("\\s+");
-        String[] headings = header.split("\\s+");
-        JsonObject sample = JsonObject.empty();
-
-        // Iterate all the samples and put them into vector
-        int i = 0;
-        for(String item : items){
-            // only put item in sample document if it has data
-            if (!item.startsWith("*")){
-                if (!headings[i].equals("WBAN") && !headings[i].equals("USAF")) {
-                    sample.put(headings[i], item);
-                }
-            }
-            ++i;
-        }
-
-        sampleVector.add(sample);
-    }
+    }   // End of main()
 
     //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 // formatInt - Right-justifies an int.

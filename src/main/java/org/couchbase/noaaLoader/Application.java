@@ -13,10 +13,14 @@ public class Application {
     public static void main(String[] args) {
 
         if (args.length < 2){
+            System.out.println("Usage: arg0=csv file, arg1=cluster ip, arg2=bucket.")
             return;
         }
 
-        Bucket myClient = CouchbaseClientFactory.getInstance("noaa","");
+        String destinationCluster = args[1];
+        String destinationBucket = args[2];
+
+        Bucket myClient = CouchbaseClientFactory.getInstance("noaa",destinationBucket, destinationCluster);
 
 
         try {
@@ -25,7 +29,7 @@ public class Application {
             e.printStackTrace();
         }
 
-
+/*
         try {
             for (int i=1; i <= args.length-1;i++) {
                 TarFileReader.getBufferedReader(new FileInputStream(args[i]));
@@ -35,7 +39,7 @@ public class Application {
         }
 
         return;
-
+*/
     }
 
 }

@@ -18,7 +18,7 @@ public class NoaaCSVInserter {
         Method creates and inserts documents for each line in opFile based on headers.
      */
     public static void insert(FileInputStream csvFile) {
-        Bucket myClient = CouchbaseClientFactory.getInstance("noaa", "");
+        Bucket myClient = CouchbaseClientFactory.getInstance("noaa", "", "localhost");
 
         Reader decoder = new InputStreamReader(csvFile);
         BufferedReader csvReader = new BufferedReader (decoder);
@@ -82,7 +82,7 @@ public class NoaaCSVInserter {
                 entry.put("type", "station");
                 JsonObject doc = JsonObject.from(entry);
                 //Key format is STN::WBAN
-                String key = "station::" + dataLine[0].replaceAll("^\"|\"$", "") + "::" +
+                String key = "station::" + dataLine[0].replaceAll("^\"|\"$", "") + "-" +
                                             dataLine[1].replaceAll("^\"|\"$", "");
                                             //dataLine[2].replaceAll("^\"|\"$", "");
                 System.out.println(key);
