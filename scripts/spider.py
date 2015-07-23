@@ -9,7 +9,7 @@ class MySpider(BaseSpider):
     name = DOMAIN
     allowed_domains = [DOMAIN]
     start_urls = [
-        (URL + str(year)) for year in range(1901,2016)
+        (URL + str(year)) for year in range(2010,2016)
     ]
 
     def parse(self, response):

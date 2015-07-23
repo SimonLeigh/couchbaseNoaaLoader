@@ -1,24 +1,11 @@
-###### Way too slow, max 3 connections
-
-````bash
-yum install lftp;
-lftp  ftp://ftp.ncdc.noaa.gov/pub/data/noaa/;
-````
-###### Single threaded, too slow to get directory list
-````bash
-wget -r --no-parent --reject "index.htm*" -X /pub/data/noaa/additional /pub/data/noaa/ISH-DVD2012 /pub/data/noaa/isd-lite /pub/data/noaa/software /pub/data/noaa/updates -c http://www1.ncdc.noaa.gov/pub/data/noaa/
-````
-````bash
-wget --spider --force-html -r -l4 --reject "index.htm*" -I "/pub/data/noaa/19*/, /pub/data/noaa/20*/" http://www1.ncdc.noaa.gov/pub/data/noaa/ 2>&1 \
-  | grep '^--' | awk '{ print $3 }' \
-  | grep -v '\.\(gz\)$' \
-  > urls.txt
-````
-````bash
-wget --spider --force-html -r -l4 --reject "index.htm*" -I "/pub/data/noaa/19*/, /pub/data/noaa/20*/" http://www1.ncdc.noaa.gov/pub/data/noaa/ 2>&1   | grep '^--' | awk '{ print $3 }'   | grep '\.\(gz\)$' > urls.txt
-````
-
 ##### Success with Python
+
+First of all, you need scrapy, so install it with:
+
+````bash
+pip install scrapy
+````
+
 ###### spider.py
 ````python
 from scrapy.selector import HtmlXPathSelector
@@ -51,7 +38,24 @@ class MySpider(BaseSpider):
   aria2c -i urls.txt -j 100;
 ````
 
-###### Run command for .jar
+It's possible to use gnu-parallel or aria2c to parallelise the download. Aria is sometimes more difficult to install, here are the two options:
+
+## wget with gnu-parallel
+````bash
+cat urls.txt | parallel -j 100 --gnu "wget {}"
+````
+
+## aria2
+````bash
+  aria2c -i urls.txt -j 100;
+````
+
+###### Run command for .jar to insert station metadata
+````bash
+java -cp cb-noaa.jar org.couchbase.noaaLoader.Application {path/to/isdhistory.csv} {CLUSTERIP} {BUCKET}
+````
+
+###### Run command for .jar to insert samples
 ````bash
 java -cp cb-noaa.jar org.couchbase.noaaLoader.support.ishJava ./noaa 84.40.63.62 > cb_upload_log.txt &
 ````

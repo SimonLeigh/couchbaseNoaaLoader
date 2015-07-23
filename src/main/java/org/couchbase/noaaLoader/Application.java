@@ -13,18 +13,18 @@ public class Application {
     public static void main(String[] args) {
 
         if (args.length < 2){
-            System.out.println("Usage: arg0=csv file, arg1=cluster ip, arg2=bucket.")
+            System.out.println("Usage: arg0=csv file, arg1=cluster ip, arg2=bucket.");
             return;
         }
 
         String destinationCluster = args[1];
         String destinationBucket = args[2];
 
-        Bucket myClient = CouchbaseClientFactory.getInstance("noaa",destinationBucket, destinationCluster);
+        Bucket myClient = CouchbaseClientFactory.getInstance(destinationBucket,"", destinationCluster);
 
 
         try {
-            NoaaCSVInserter.insert(new FileInputStream(args[0]));
+            NoaaCSVInserter.insert(new FileInputStream(args[0]), myClient);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
