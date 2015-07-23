@@ -40,12 +40,12 @@ class MySpider(BaseSpider):
 
 It's possible to use gnu-parallel or aria2c to parallelise the download. Aria is sometimes more difficult to install, here are the two options:
 
-## wget with gnu-parallel
+##### wget with gnu-parallel
 ````bash
 cat urls.txt | parallel -j 100 --gnu "wget {}"
 ````
 
-## aria2
+##### aria2
 ````bash
   aria2c -i urls.txt -j 100;
 ````
