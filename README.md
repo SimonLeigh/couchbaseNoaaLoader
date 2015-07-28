@@ -51,7 +51,8 @@ cat urls.txt | parallel -j 100 --gnu "wget {}"
 
 ###### Run command for .jar to insert station metadata
 ````bash
-java -cp cb-noaa.jar org.couchbase.noaaLoader.Application {path/to/isdhistory.csv} {CLUSTERIP} {BUCKET}
+wget http://www1.ncdc.noaa.gov/pub/data/noaa/isd-history.csv
+java -cp cb-noaa.jar org.couchbase.noaaLoader.Application isd-history.csv {CLUSTERIP} {BUCKET}
 ````
 
 ###### Run command for .jar to insert samples
