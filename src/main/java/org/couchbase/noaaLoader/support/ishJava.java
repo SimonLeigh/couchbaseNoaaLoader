@@ -318,7 +318,7 @@ public class ishJava
         Bucket = CouchbaseClientFactory.getInstance("noaa","", args[1]);
 
         try {
-            Files.walk(Paths.get(args[0])).forEach(path -> processFile(path.toFile()));
+            Files.walk(Paths.get(args[0])).parallel().forEach(path -> processFile(path.toFile()));
         } catch (IOException e) {
             e.printStackTrace();
         } catch (Exception e){

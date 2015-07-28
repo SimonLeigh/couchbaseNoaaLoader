@@ -39,6 +39,14 @@ class MySpider(BaseSpider):
 
 It's possible to use gnu-parallel or aria2c to parallelise the download. Aria is sometimes more difficult to install, here are the two options:
 
+On a mac, for example:
+
+brew install parallel
+
+or
+
+brew install aria2
+
 ##### wget with gnu-parallel
 ````bash
 cat urls.txt | parallel -j 100 --gnu "wget {}"
