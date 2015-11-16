@@ -37,24 +37,16 @@ class MySpider(BaseSpider):
   scrapy runspider spider.py 2>&1 | grep '^http' | grep '\.gz$' > urls.txt;
 ````
 
-It's possible to use gnu-parallel or aria2c to parallelise the download. Aria is sometimes more difficult to install, here are the two options:
+It's possible to use gnu-parallel to parallelise the download. 
 
 On a mac, for example:
 
 brew install parallel
 
-or
-
-brew install aria2
 
 ##### wget with gnu-parallel
 ````bash
 cat urls.txt | parallel -j 100 --gnu "wget {}"
-````
-
-##### aria2
-````bash
-  aria2c -i urls.txt -j 100;
 ````
 
 ###### Run command for .jar to insert station metadata
